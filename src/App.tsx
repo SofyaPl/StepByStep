@@ -444,17 +444,23 @@ export const App: React.FC = () => {
                 <Inbox className="w-6 h-6" />
               </div>
               <p className="text-sm font-semibold text-slate-300">
-                {activeFilter === 'all'
-                  ? 'На этот день пока нет задач'
+                {dayTasks.length === 0
+                  ? 'На этот день нет задач'
                   : activeFilter === 'pending'
                   ? 'Все запланированные задачи выполнены!'
                   : activeFilter === 'completed'
                   ? 'Пока нет завершенных задач'
-                  : 'Нет отмененных или пропущенных задач'}
+                  : activeFilter === 'cancelled'
+                  ? 'Нет отмененных задач'
+                  : 'На этот день пока нет задач'}
               </p>
               <p className="text-xs text-slate-500 mt-1 max-w-xs mx-auto">
-                {activeFilter === 'all'
+                {dayTasks.length === 0
                   ? 'Нажмите на кнопку «Новая задача», чтобы запланировать день.'
+                  : activeFilter === 'pending'
+                  ? 'Отличная работа! В плане на этот день больше ничего не осталось.'
+                  : activeFilter === 'completed'
+                  ? 'Отмечайте выполненные задачи кружком слева.'
                   : 'Смените вкладку фильтра или добавьте новую задачу.'}
               </p>
               <div className="flex flex-wrap items-center justify-center gap-2 mt-4">
