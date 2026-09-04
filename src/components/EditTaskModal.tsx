@@ -186,7 +186,7 @@ export const EditTaskModal: React.FC<EditTaskModalProps> = ({
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Что нужно сделать?"
-              className="w-full bg-slate-950 border border-slate-700/80 rounded-2xl px-3.5 py-2.5 text-sm font-medium text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+              className="w-full bg-slate-950 border border-slate-700/80 rounded-2xl px-3.5 py-2.5 text-base font-medium text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
             />
           </div>
 
@@ -201,7 +201,7 @@ export const EditTaskModal: React.FC<EditTaskModalProps> = ({
               onChange={(e) => setNotes(e.target.value)}
               placeholder="Номера документов, адреса, ссылки, дозировка..."
               rows={2}
-              className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-3.5 py-2 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 resize-none leading-relaxed"
+              className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-3.5 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 resize-none leading-relaxed"
             />
           </div>
 

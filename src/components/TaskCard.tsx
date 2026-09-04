@@ -94,17 +94,17 @@ export const TaskCard: React.FC<TaskCardProps> = ({
           {/* Status Button */}
           <button
             onClick={handleToggleComplete}
-            className="mt-0.5 shrink-0 transition-transform active:scale-90"
+            className="mt-0.5 p-1 -m-1 shrink-0 transition-transform active:scale-90"
             title={isCompleted ? 'Отметить как невыполненную' : 'Завершить задачу'}
           >
             {isCompleted ? (
-              <CheckCircle2 className="w-5 h-5 text-emerald-400 fill-emerald-500/20" />
+              <CheckCircle2 className="w-[22px] h-[22px] text-emerald-400 fill-emerald-500/20" />
             ) : isCancelled ? (
-              <XCircle className="w-5 h-5 text-slate-500" />
+              <XCircle className="w-[22px] h-[22px] text-slate-500" />
             ) : isMissed ? (
-              <MinusCircle className="w-5 h-5 text-amber-500/60" />
+              <MinusCircle className="w-[22px] h-[22px] text-amber-500/60" />
             ) : (
-              <Circle className="w-5 h-5 text-slate-400 hover:text-indigo-400" />
+              <Circle className="w-[22px] h-[22px] text-slate-400 hover:text-indigo-400" />
             )}
           </button>
 
@@ -112,7 +112,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
           <div className="flex-1 min-w-0" onClick={() => setShowMenu(!showMenu)}>
             <div className="flex items-center gap-2 flex-wrap">
               <p
-                className={`text-sm leading-snug break-words ${
+                className={`text-base leading-snug break-words ${
                   isCompleted
                     ? 'line-through text-slate-400 font-normal'
                     : isCancelled
@@ -133,18 +133,18 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                     e.stopPropagation();
                     onEdit(task);
                   }}
-                  className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-md bg-indigo-500/15 hover:bg-indigo-500/30 text-indigo-300 border border-indigo-500/20 hover:border-indigo-500/40 font-medium transition active:scale-95 cursor-pointer"
+                  className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-md bg-indigo-500/15 hover:bg-indigo-500/30 text-indigo-300 border border-indigo-500/20 hover:border-indigo-500/40 font-medium transition active:scale-95 cursor-pointer"
                   title="Нажмите, чтобы настроить или остановить цикл"
                 >
-                  <Repeat className="w-2.5 h-2.5" />
+                  <Repeat className="w-3 h-3" />
                   <span>{recBadgeText || 'Цикл'}</span>
                 </button>
               )}
             </div>
 
             {task.notes && (
-              <p className={`text-xs mt-1 break-words ${
-                isCompleted || isCancelled ? 'text-slate-500' : 'text-slate-400'
+              <p className={`text-sm mt-1.5 break-words leading-relaxed ${
+                isCompleted || isCancelled ? 'text-slate-500' : 'text-slate-300/85'
               }`}>
                 {task.notes}
               </p>
@@ -153,17 +153,17 @@ export const TaskCard: React.FC<TaskCardProps> = ({
             {/* Status Badges */}
             <div className="flex items-center gap-2 mt-2">
               {isCompleted && (
-                <span className="text-[10px] px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-400 font-medium">
+                <span className="text-[11px] px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-400 font-medium">
                   Завершено
                 </span>
               )}
               {isCancelled && (
-                <span className="text-[10px] px-2 py-0.5 rounded-md bg-rose-500/10 text-rose-400 font-medium">
+                <span className="text-[11px] px-2 py-0.5 rounded-md bg-rose-500/10 text-rose-400 font-medium">
                   Отменено
                 </span>
               )}
               {isMissed && (
-                <span className="text-[10px] px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-300 font-medium">
+                <span className="text-[11px] px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-300 font-medium">
                   Пропущен эпизод
                 </span>
               )}
