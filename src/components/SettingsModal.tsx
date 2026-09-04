@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { SyncSettings, Task } from '../types';
 import { GOOGLE_APPS_SCRIPT_TEMPLATE } from '../services/googleSheets';
+import { forceAppUpdate } from '../serviceWorkerHelper';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -44,8 +45,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [autoSync, setAutoSync] = useState(settings.autoSync);
   const [copiedCode, setCopiedCode] = useState(false);
   const [showScriptDetails, setShowScriptDetails] = useState(false);
+  const [isUpdatingApp, setIsUpdatingApp] = useState(false);
 
   if (!isOpen) return null;
+
+  const handleForceUpdate = async () => {
+    setIsUpdatingApp(true);
+    await forceAppUpdate();
+  };
 
   const handleSaveSyncSettings = () => {
     onSaveSettings({
@@ -338,6 +345,24 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               </div>
             </div>
           )}
+        </div>
+
+        {/* App Version & Force Update Footer */}
+        <div className="pt-3 border-t border-slate-800 flex items-center justify-between text-xs text-slate-400 shrink-0">
+          <div>
+            <span className="font-semibold text-slate-200">ШагЗаШагом</span>
+            <span className="text-[11px] text-slate-500 ml-1.5">v1.1</span>
+          </div>
+          <button
+            type="button"
+            onClick={handleForceUpdate}
+            disabled={isUpdatingApp}
+            className="px-3 py-1.5 rounded-xl bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 font-medium transition flex items-center gap-1.5 active:scale-95 disabled:opacity-50"
+            title="Очистить кэш приложения и загрузить свежую версию"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isUpdatingApp ? 'animate-spin' : ''}`} />
+            <span>{isUpdatingApp ? 'Обновление...' : 'Обновить приложение'}</span>
+          </button>
         </div>
       </div>
     </div>
