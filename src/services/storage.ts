@@ -109,6 +109,11 @@ export function loadTasks(): Task[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY_TASKS);
     if (!raw) {
+      const settings = loadSettings();
+      // If user already configured Google Sheets, don't generate dummy demo tasks
+      if (settings.googleSheetsUrl) {
+        return [];
+      }
       const initial = getInitialDemoTasks();
       saveTasks(initial);
       return initial;

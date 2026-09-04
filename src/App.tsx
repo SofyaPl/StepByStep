@@ -168,24 +168,37 @@ export const App: React.FC = () => {
       saveTasks(updatedTasks);
     }
 
-    // Если локальных задач нет, но URL Google Таблицы сохранен — автоматически восстанавливаем из таблицы
+    // Auto-sync on startup if Google Sheets URL is configured
     const savedSettings = loadSettings();
-    if (loaded.length === 0 && savedSettings.googleSheetsUrl) {
-      clearDeletedTaskIds();
-      syncWithGoogleSheets(savedSettings.googleSheetsUrl, [], {}, null).then(({ result, mergedTasks, updatedDeletedMap }) => {
-        if (result.success && mergedTasks.length > 0) {
-          const { updatedTasks: recTasks } = ensureRecurringTasks(mergedTasks, 7, 45, updatedDeletedMap);
-          applySyncedTasks(recTasks, updatedDeletedMap);
-          const newSettings: SyncSettings = {
-            ...savedSettings,
-            lastSyncedAt: new Date().toISOString()
-          };
-          setSettings(newSettings);
-          saveSettings(newSettings);
-        }
-      });
+    if (savedSettings.googleSheetsUrl) {
+      const isOnlyDemo = loaded.length > 0 && loaded.every(t => t.id.startsWith('demo-'));
+      if (isOnlyDemo || loaded.length === 0) {
+        clearDeletedTaskIds();
+        handleSyncRef.current(true);
+      } else {
+        handleSyncRef.current(false);
+      }
     }
   }, [applySyncedTasks]);
+
+  // Sync when returning to the app window/tab
+  useEffect(() => {
+    const handleFocusOrVisible = () => {
+      if (document.visibilityState === 'visible') {
+        const cur = loadSettings();
+        if (cur.googleSheetsUrl && cur.autoSync) {
+          handleSyncRef.current(false);
+        }
+      }
+    };
+
+    window.addEventListener('focus', handleFocusOrVisible);
+    document.addEventListener('visibilitychange', handleFocusOrVisible);
+    return () => {
+      window.removeEventListener('focus', handleFocusOrVisible);
+      document.removeEventListener('visibilitychange', handleFocusOrVisible);
+    };
+  }, []);
 
   // Whenever selectedDateKey changes, ensure recurring instances are generated around it
   useEffect(() => {
@@ -338,13 +351,16 @@ export const App: React.FC = () => {
     setSyncMessage(fullReloadFromSheet ? 'Загрузка всех задач из Google Таблицы...' : 'Синхронизация с Google Таблицей...');
 
     try {
-      if (fullReloadFromSheet) {
+      const isOnlyDemo = tasksRef.current.length > 0 && tasksRef.current.every(t => t.id.startsWith('demo-'));
+      const isCleanReload = fullReloadFromSheet || isOnlyDemo;
+
+      if (isCleanReload) {
         clearDeletedTaskIds();
       }
 
-      const currentTasks = fullReloadFromSheet ? [] : [...tasksRef.current];
-      const currentDeleted = fullReloadFromSheet ? {} : loadDeletedTaskIds();
-      const currentLastSynced = fullReloadFromSheet ? null : currentSettings.lastSyncedAt;
+      const currentTasks = isCleanReload ? [] : [...tasksRef.current];
+      const currentDeleted = isCleanReload ? {} : loadDeletedTaskIds();
+      const currentLastSynced = isCleanReload ? null : currentSettings.lastSyncedAt;
 
       const { result, mergedTasks, updatedDeletedMap } = await syncWithGoogleSheets(
         currentSettings.googleSheetsUrl,
@@ -357,7 +373,7 @@ export const App: React.FC = () => {
         saveDeletedTaskIds(updatedDeletedMap);
 
         // If user made changes while network request was in flight, do not overwrite them!
-        if (pendingChangesDuringSyncRef.current && !fullReloadFromSheet) {
+        if (pendingChangesDuringSyncRef.current && !isCleanReload) {
           pendingChangesDuringSyncRef.current = false;
           const latestLocal = tasksRef.current;
           const latestLocalIds = new Set(latestLocal.map(t => t.id));
@@ -376,6 +392,12 @@ export const App: React.FC = () => {
 
           // Re-sync after 2s to push user's new in-flight changes to the sheet
           triggerAutoSync();
+        } else if (isCleanReload) {
+          pendingChangesDuringSyncRef.current = false;
+          const { updatedTasks } = ensureRecurringTasks(mergedTasks, 7, 45, updatedDeletedMap);
+          tasksRef.current = updatedTasks;
+          setTasks(updatedTasks);
+          saveTasks(updatedTasks);
         } else {
           pendingChangesDuringSyncRef.current = false;
           const { updatedTasks } = ensureRecurringTasks(mergedTasks, 7, 45, updatedDeletedMap);

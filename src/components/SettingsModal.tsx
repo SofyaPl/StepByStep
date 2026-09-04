@@ -48,12 +48,22 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   isStandalone
 }) => {
   const [activeTab, setActiveTab] = useState<'sync' | 'install' | 'backup'>('sync');
-  const [url, setUrl] = useState(settings.googleSheetsUrl);
+  const [url, setUrl] = useState(settings.googleSheetsUrl || '');
   const [autoSync, setAutoSync] = useState(settings.autoSync);
   const [copiedCode, setCopiedCode] = useState(false);
   const [showScriptDetails, setShowScriptDetails] = useState(false);
   const [showInstructions, setShowInstructions] = useState(!settings.googleSheetsUrl);
   const [isUpdatingApp, setIsUpdatingApp] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+
+  // Synchronize state when modal opens or settings change
+  React.useEffect(() => {
+    if (isOpen) {
+      setUrl(settings.googleSheetsUrl || '');
+      setAutoSync(settings.googleSheetsUrl ? settings.autoSync : true);
+      setShowInstructions(!settings.googleSheetsUrl);
+    }
+  }, [isOpen, settings.googleSheetsUrl, settings.autoSync]);
 
   if (!isOpen) return null;
 
@@ -62,12 +72,28 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     await forceAppUpdate();
   };
 
-  const handleSaveSyncSettings = () => {
-    onSaveSettings({
+  const handleSaveSyncSettings = (triggerSync = true) => {
+    const cleanUrl = url.trim();
+    const updatedSettings: SyncSettings = {
       ...settings,
-      googleSheetsUrl: url.trim(),
-      autoSync
-    });
+      googleSheetsUrl: cleanUrl,
+      // If user inputs a URL, turn on autoSync by default
+      autoSync: cleanUrl ? (autoSync !== false) : false
+    };
+    setAutoSync(updatedSettings.autoSync);
+    onSaveSettings(updatedSettings);
+    setSaveSuccess(true);
+    setTimeout(() => setSaveSuccess(false), 3000);
+
+    if (triggerSync && cleanUrl) {
+      // If local list is empty or only demo tasks, trigger full reload from sheet
+      const isOnlyDemo = tasks.length > 0 && tasks.every(t => t.id.startsWith('demo-'));
+      if ((isOnlyDemo || tasks.length === 0) && onFullReloadFromSheet) {
+        onFullReloadFromSheet();
+      } else {
+        onManualSync();
+      }
+    }
   };
 
   const handleCopyScript = () => {
@@ -194,19 +220,26 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
                 <div className="flex flex-wrap items-center gap-2 pt-1">
                   <button
-                    onClick={handleSaveSyncSettings}
-                    className="px-3.5 py-2 rounded-xl bg-indigo-600 text-white font-medium hover:bg-indigo-500 transition text-xs"
+                    onClick={() => handleSaveSyncSettings(true)}
+                    className="px-3.5 py-2 rounded-xl bg-indigo-600 text-white font-medium hover:bg-indigo-500 transition text-xs flex items-center gap-1.5 shadow-sm active:scale-95"
                   >
-                    Сохранить адрес
+                    {saveSuccess ? (
+                      <>
+                        <Check className="w-3.5 h-3.5 text-emerald-300" />
+                        <span className="text-emerald-100 font-semibold">Адрес сохранён!</span>
+                      </>
+                    ) : (
+                      <span>Сохранить адрес</span>
+                    )}
                   </button>
 
                   <button
                     onClick={() => {
-                      handleSaveSyncSettings();
+                      handleSaveSyncSettings(false);
                       onManualSync();
                     }}
                     disabled={isSyncing || !url}
-                    className="px-3.5 py-2 rounded-xl bg-emerald-600 text-white font-medium hover:bg-emerald-500 disabled:opacity-40 transition flex items-center gap-1 text-xs"
+                    className="px-3.5 py-2 rounded-xl bg-emerald-600 text-white font-medium hover:bg-emerald-500 disabled:opacity-40 transition flex items-center gap-1 text-xs active:scale-95"
                   >
                     <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
                     <span>Синхронизировать сейчас</span>

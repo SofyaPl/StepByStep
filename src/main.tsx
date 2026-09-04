@@ -7,6 +7,11 @@ import { registerPwaUpdateHandlers, initPwaInstallListener } from './serviceWork
 registerPwaUpdateHandlers();
 initPwaInstallListener();
 
+// Request persistent storage from browser (prevents Chrome/Edge from evicting local data)
+if (typeof navigator !== 'undefined' && navigator.storage && navigator.storage.persist) {
+  navigator.storage.persist().catch(() => {});
+}
+
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <App />
