@@ -45,6 +45,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [autoSync, setAutoSync] = useState(settings.autoSync);
   const [copiedCode, setCopiedCode] = useState(false);
   const [showScriptDetails, setShowScriptDetails] = useState(false);
+  const [showInstructions, setShowInstructions] = useState(!settings.googleSheetsUrl);
   const [isUpdatingApp, setIsUpdatingApp] = useState(false);
 
   if (!isOpen) return null;
@@ -101,8 +102,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-lg w-full p-5 shadow-2xl flex flex-col max-h-[90vh]">
+    <div
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div className="bg-slate-900 border border-slate-800 rounded-t-3xl sm:rounded-3xl max-w-lg w-full p-4 sm:p-6 shadow-2xl flex flex-col max-h-[92vh] animate-in slide-in-from-bottom-6 sm:slide-in-from-bottom-2 duration-200">
         {/* Header */}
         <div className="flex items-center justify-between pb-3 border-b border-slate-800 shrink-0">
           <h2 className="text-base font-bold text-white flex items-center gap-2">
@@ -117,39 +123,39 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         </div>
 
         {/* Tab selection */}
-        <div className="flex bg-slate-950/70 p-1 rounded-2xl border border-slate-800/80 my-3 shrink-0">
+        <div className="grid grid-cols-3 gap-1 bg-slate-950/80 p-1 rounded-2xl border border-slate-800/80 my-3 shrink-0">
           <button
             onClick={() => setActiveTab('sync')}
-            className={`flex-1 py-1.5 rounded-xl text-xs font-medium flex items-center justify-center gap-1.5 transition ${
+            className={`py-2 px-1 rounded-xl text-xs font-medium flex items-center justify-center gap-1.5 transition ${
               activeTab === 'sync'
                 ? 'bg-indigo-600 text-white shadow-sm'
                 : 'text-slate-400 hover:text-slate-200'
             }`}
           >
-            <Cloud className="w-3.5 h-3.5" />
-            <span>Google Таблицы</span>
+            <Cloud className="w-3.5 h-3.5 shrink-0" />
+            <span className="truncate">Таблицы</span>
           </button>
           <button
             onClick={() => setActiveTab('install')}
-            className={`flex-1 py-1.5 rounded-xl text-xs font-medium flex items-center justify-center gap-1.5 transition ${
+            className={`py-2 px-1 rounded-xl text-xs font-medium flex items-center justify-center gap-1.5 transition ${
               activeTab === 'install'
                 ? 'bg-indigo-600 text-white shadow-sm'
                 : 'text-slate-400 hover:text-slate-200'
             }`}
           >
-            <Smartphone className="w-3.5 h-3.5" />
-            <span>На телефон</span>
+            <Smartphone className="w-3.5 h-3.5 shrink-0" />
+            <span className="truncate">Телефон</span>
           </button>
           <button
             onClick={() => setActiveTab('backup')}
-            className={`flex-1 py-1.5 rounded-xl text-xs font-medium flex items-center justify-center gap-1.5 transition ${
+            className={`py-2 px-1 rounded-xl text-xs font-medium flex items-center justify-center gap-1.5 transition ${
               activeTab === 'backup'
                 ? 'bg-indigo-600 text-white shadow-sm'
                 : 'text-slate-400 hover:text-slate-200'
             }`}
           >
-            <Database className="w-3.5 h-3.5" />
-            <span>Резервная копия</span>
+            <Database className="w-3.5 h-3.5 shrink-0" />
+            <span className="truncate">Резерв</span>
           </button>
         </div>
 
@@ -229,52 +235,67 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               </div>
 
               {/* Instructions Accordion */}
-              <div className="bg-slate-950/40 p-3.5 rounded-2xl border border-slate-800 space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <h4 className="font-semibold text-slate-200 flex items-center gap-1.5">
-                    <HelpCircle className="w-4 h-4 text-indigo-400" />
-                    <span>Как настроить таблицу за 2 минуты:</span>
-                  </h4>
-                  <button
-                    onClick={() => setShowScriptDetails(!showScriptDetails)}
-                    className="text-indigo-400 hover:underline text-[11px]"
-                  >
-                    {showScriptDetails ? 'Скрыть код' : 'Показать код'}
-                  </button>
-                </div>
-
-                <ol className="list-decimal list-inside space-y-1.5 text-slate-400 text-[11px] leading-relaxed">
-                  <li>Создайте новую таблицу в Google Sheets (любое имя).</li>
-                  <li>В меню выберите <b>Расширения (Extensions)</b> → <b>Apps Script</b>.</li>
-                  <li>Вставьте готовый код (кнопка ниже) и нажмите <b>Сохранить (Ctrl+S)</b>.</li>
-                  <li>Справа вверху: <b>Развернуть</b> → <b>Новое развертывание</b> (тип: <b>Веб-приложение</b>, доступ / Who has access: <b>Все / Anyone</b>).</li>
-                  <li>
-                    <i>Если Google покажет «Google hasn't verified this app»:</i> нажмите <b>Advanced (Дополнительно)</b> → <b>Go to ... (unsafe) / Перейти (небезопасно)</b> → <b>Allow (Разрешить)</b>. Это ваш собственный личный скрипт, поэтому это на 100% безопасно.
-                  </li>
-                  <li>Скопируйте полученную ссылку веб-приложения и вставьте в поле выше!</li>
-                </ol>
-
+              <div className="bg-slate-950/40 rounded-2xl border border-slate-800 overflow-hidden">
                 <button
-                  onClick={handleCopyScript}
-                  className="w-full py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700/80 transition flex items-center justify-center gap-1.5 text-xs font-medium"
+                  type="button"
+                  onClick={() => setShowInstructions(!showInstructions)}
+                  className="w-full p-3 flex items-center justify-between hover:bg-slate-850/50 transition text-left"
                 >
-                  {copiedCode ? (
-                    <>
-                      <Check className="w-4 h-4 text-emerald-400" />
-                      <span className="text-emerald-400">Код скрипта скопирован в буфер!</span>
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="w-4 h-4" />
-                      <span>Скопировать готовый код для Google Apps Script</span>
-                    </>
-                  )}
+                  <div className="flex items-center gap-1.5 font-semibold text-slate-200">
+                    <HelpCircle className="w-4 h-4 text-indigo-400 shrink-0" />
+                    <span>Инструкция по настройке таблицы</span>
+                  </div>
+                  <span className="text-xs text-indigo-400 font-medium">
+                    {showInstructions ? 'Скрыть ▲' : 'Показать ▼'}
+                  </span>
                 </button>
 
-                {showScriptDetails && (
-                  <pre className="bg-slate-950 p-2.5 rounded-xl border border-slate-800 text-[10px] text-slate-400 overflow-x-auto max-h-40 font-mono">
-                    {GOOGLE_APPS_SCRIPT_TEMPLATE}
-                  </pre>
+                {showInstructions && (
+                  <div className="p-3.5 pt-1 space-y-2.5 border-t border-slate-800/60 mt-1">
+                    <div className="flex items-center justify-between pt-1">
+                      <span className="text-slate-300 font-medium text-[11px]">Пошаговый план:</span>
+                      <button
+                        onClick={() => setShowScriptDetails(!showScriptDetails)}
+                        className="text-indigo-400 hover:underline text-[11px]"
+                      >
+                        {showScriptDetails ? 'Скрыть код' : 'Показать код'}
+                      </button>
+                    </div>
+
+                    <ol className="list-decimal list-inside space-y-1.5 text-slate-400 text-[11px] leading-relaxed">
+                      <li>Создайте новую таблицу в Google Sheets (любое имя).</li>
+                      <li>В меню выберите <b>Расширения (Extensions)</b> → <b>Apps Script</b>.</li>
+                      <li>Вставьте готовый код (кнопка ниже) и нажмите <b>Сохранить (Ctrl+S)</b>.</li>
+                      <li>Справа вверху: <b>Развернуть</b> → <b>Новое развертывание</b> (тип: <b>Веб-приложение</b>, доступ: <b>Все / Anyone</b>).</li>
+                      <li>
+                        <i>Если Google покажет «Google hasn't verified this app»:</i> нажмите <b>Advanced (Дополнительно)</b> → <b>Go to ... (unsafe) / Перейти (небезопасно)</b> → <b>Allow (Разрешить)</b>.
+                      </li>
+                      <li>Скопируйте полученную ссылку веб-приложения и вставьте в поле выше!</li>
+                    </ol>
+
+                    <button
+                      onClick={handleCopyScript}
+                      className="w-full py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700/80 transition flex items-center justify-center gap-1.5 text-xs font-medium"
+                    >
+                      {copiedCode ? (
+                        <>
+                          <Check className="w-4 h-4 text-emerald-400" />
+                          <span className="text-emerald-400">Код скрипта скопирован в буфер!</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-4 h-4" />
+                          <span>Скопировать готовый код для Google Apps Script</span>
+                        </>
+                      )}
+                    </button>
+
+                    {showScriptDetails && (
+                      <pre className="bg-slate-950 p-2.5 rounded-xl border border-slate-800 text-[10px] text-slate-400 overflow-x-auto max-h-40 font-mono">
+                        {GOOGLE_APPS_SCRIPT_TEMPLATE}
+                      </pre>
+                    )}
+                  </div>
                 )}
               </div>
             </div>
@@ -348,20 +369,22 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         </div>
 
         {/* App Version & Force Update Footer */}
-        <div className="pt-3 border-t border-slate-800 flex items-center justify-between text-xs text-slate-400 shrink-0">
-          <div>
+        <div className="pt-3 pb-1 mt-auto border-t border-slate-800 flex items-center justify-between text-xs text-slate-400 shrink-0 bg-slate-900">
+          <div className="flex items-center gap-2">
             <span className="font-semibold text-slate-200">ШагЗаШагом</span>
-            <span className="text-[11px] text-slate-500 ml-1.5">v1.1</span>
+            <span className="text-[11px] px-2 py-0.5 rounded-md bg-slate-800 text-indigo-300 font-mono border border-slate-700/60">
+              v1.2
+            </span>
           </div>
           <button
             type="button"
             onClick={handleForceUpdate}
             disabled={isUpdatingApp}
-            className="px-3 py-1.5 rounded-xl bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 font-medium transition flex items-center gap-1.5 active:scale-95 disabled:opacity-50"
+            className="px-3.5 py-2 rounded-xl bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 font-medium transition flex items-center gap-1.5 active:scale-95 disabled:opacity-50"
             title="Очистить кэш приложения и загрузить свежую версию"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${isUpdatingApp ? 'animate-spin' : ''}`} />
-            <span>{isUpdatingApp ? 'Обновление...' : 'Обновить приложение'}</span>
+            <span>{isUpdatingApp ? 'Обновляем...' : 'Обновить версию'}</span>
           </button>
         </div>
       </div>
