@@ -9,7 +9,8 @@ import {
   Check,
   RefreshCw,
   HelpCircle,
-  Database
+  Database,
+  Monitor
 } from 'lucide-react';
 import { SyncSettings, Task } from '../types';
 import { GOOGLE_APPS_SCRIPT_TEMPLATE } from '../services/googleSheets';
@@ -26,6 +27,9 @@ interface SettingsModalProps {
   syncMessage: string | null;
   tasks: Task[];
   onImportTasks: (tasks: Task[]) => void;
+  canInstall?: boolean;
+  onInstall?: () => void;
+  isStandalone?: boolean;
 }
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
@@ -38,7 +42,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   isSyncing,
   syncMessage,
   tasks,
-  onImportTasks
+  onImportTasks,
+  canInstall,
+  onInstall,
+  isStandalone
 }) => {
   const [activeTab, setActiveTab] = useState<'sync' | 'install' | 'backup'>('sync');
   const [url, setUrl] = useState(settings.googleSheetsUrl);
@@ -143,8 +150,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 : 'text-slate-400 hover:text-slate-200'
             }`}
           >
-            <Smartphone className="w-3.5 h-3.5 shrink-0" />
-            <span className="truncate">Телефон</span>
+            <Monitor className="w-3.5 h-3.5 shrink-0" />
+            <span className="truncate">Установка</span>
           </button>
           <button
             onClick={() => setActiveTab('backup')}
@@ -304,31 +311,72 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           {activeTab === 'install' && (
             <div className="space-y-3 bg-slate-950/40 p-4 rounded-2xl border border-slate-800">
               <h4 className="font-semibold text-slate-200 text-sm">
-                Как перенести на экран смартфона:
+                Установка на компьютер и телефон:
               </h4>
 
+              {/* Quick direct install button for desktop/Android if browser supports it */}
+              {canInstall && !isStandalone && onInstall && (
+                <div className="p-3 bg-indigo-950/30 rounded-xl border border-indigo-500/30 flex flex-col sm:flex-row items-center justify-between gap-2.5">
+                  <div className="text-xs text-indigo-200">
+                    <span className="font-semibold">Браузер готов к установке:</span>
+                    <p className="text-[11px] text-indigo-300/80 mt-0.5">
+                      Добавьте приложение на компьютер или телефон в 1 клик.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={onInstall}
+                    className="w-full sm:w-auto shrink-0 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold transition flex items-center justify-center gap-1.5 shadow-lg shadow-indigo-600/30 active:scale-95"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    <span>Установить сейчас</span>
+                  </button>
+                </div>
+              )}
+
+              {isStandalone && (
+                <div className="p-3 bg-emerald-950/30 rounded-xl border border-emerald-500/30 flex items-center gap-2 text-xs text-emerald-300">
+                  <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span>Приложение уже установлено и запущено автономно!</span>
+                </div>
+              )}
+
               <div className="space-y-3 pt-1 text-slate-300">
+                <div className="p-3 bg-slate-900 rounded-xl border border-slate-800 space-y-1.5">
+                  <h5 className="font-semibold text-indigo-400 flex items-center gap-1.5">
+                    <Monitor className="w-4 h-4 text-indigo-400 shrink-0" />
+                    <span>💻 На компьютере (Windows / Mac)</span>
+                  </h5>
+                  <p className="text-slate-400 leading-relaxed text-[11px]">
+                    Приложение работает в отдельном окне без рамок и вкладок, создаёт ярлык на Рабочем столе и в меню «Пуск», его можно закрепить в Панели задач:
+                  </p>
+                  <ul className="list-disc list-inside space-y-1 text-slate-400 text-[11px] leading-relaxed pl-0.5">
+                    <li><b>В Google Chrome:</b> в адресной строке справа нажмите иконку монитора со стрелочкой (или меню 3 точки → <i>«Сохранить и поделиться»</i> → <b>«Установить приложение ШагЗаШагом»</b>).</li>
+                    <li><b>В Microsoft Edge:</b> в адресной строке справа нажмите значок приложения (квадратики с плюсом) или меню 3 точки → <i>«Приложения»</i> → <b>«Установить этот сайт как приложение»</b>.</li>
+                    <li><b>В Яндекс Браузере:</b> нажмите значок «+» / «Установить» в строке или меню → <i>«Дополнительно»</i> → <b>«Установить как приложение»</b>.</li>
+                  </ul>
+                </div>
+
                 <div className="p-3 bg-slate-900 rounded-xl border border-slate-800 space-y-1">
-                  <h5 className="font-semibold text-indigo-400 flex items-center gap-1">
+                  <h5 className="font-semibold text-sky-400 flex items-center gap-1.5">
+                    <Smartphone className="w-4 h-4 text-sky-400 shrink-0" />
                     <span>🍏 На iPhone / iPad (Safari)</span>
                   </h5>
                   <p className="text-slate-400 leading-relaxed text-[11px]">
-                    1. Откройте сайт приложения в браузере <b>Safari</b>.<br />
+                    1. Откройте сайт в <b>Safari</b>.<br />
                     2. Нажмите иконку <b>«Поделиться»</b> (квадратик со стрелкой вверх внизу экрана).<br />
-                    3. Прокрутите список и выберите <b>«На экран Домой»</b>.<br />
-                    4. Нажмите «Добавить». Теперь приложение запускается как обычная программа без рамок браузера!
+                    3. Прокрутите список и выберите <b>«На экран Домой»</b>.
                   </p>
                 </div>
 
                 <div className="p-3 bg-slate-900 rounded-xl border border-slate-800 space-y-1">
-                  <h5 className="font-semibold text-emerald-400 flex items-center gap-1">
+                  <h5 className="font-semibold text-emerald-400 flex items-center gap-1.5">
+                    <Smartphone className="w-4 h-4 text-emerald-400 shrink-0" />
                     <span>🤖 На Android (Chrome / Яндекс)</span>
                   </h5>
                   <p className="text-slate-400 leading-relaxed text-[11px]">
-                    1. Откройте сайт в <b>Google Chrome</b> или Яндекс Браузере.<br />
-                    2. Нажмите на три точки в правом верхнем углу.<br />
-                    3. Выберите <b>«Установить приложение»</b> или «Добавить на главный экран».<br />
-                    4. Подтвердите установку.
+                    1. Откройте сайт в <b>Chrome</b> или Яндекс Браузере.<br />
+                    2. Нажмите меню (три точки) → <b>«Установить приложение»</b> (или «Добавить на главный экран»).
                   </p>
                 </div>
               </div>

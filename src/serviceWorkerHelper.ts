@@ -59,3 +59,56 @@ export async function forceAppUpdate(): Promise<void> {
     window.location.href = url.toString();
   }
 }
+
+export interface BeforeInstallPromptEvent extends Event {
+  readonly platforms: string[];
+  readonly userChoice: Promise<{
+    outcome: 'accepted' | 'dismissed';
+    platform: string;
+  }>;
+  prompt(): Promise<void>;
+}
+
+let deferredInstallPrompt: BeforeInstallPromptEvent | null = null;
+
+export function initPwaInstallListener(): void {
+  if (typeof window === 'undefined') return;
+
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredInstallPrompt = e as BeforeInstallPromptEvent;
+    window.dispatchEvent(new CustomEvent('pwa-installable'));
+  });
+
+  window.addEventListener('appinstalled', () => {
+    deferredInstallPrompt = null;
+    window.dispatchEvent(new CustomEvent('pwa-installed'));
+  });
+}
+
+export function getDeferredInstallPrompt(): BeforeInstallPromptEvent | null {
+  return deferredInstallPrompt;
+}
+
+export function isAppStandalone(): boolean {
+  if (typeof window === 'undefined') return false;
+  return (
+    window.matchMedia('(display-mode: standalone)').matches ||
+    (window.navigator as unknown as { standalone?: boolean }).standalone === true
+  );
+}
+
+export async function promptPwaInstall(): Promise<boolean> {
+  if (!deferredInstallPrompt) return false;
+  try {
+    await deferredInstallPrompt.prompt();
+    const choice = await deferredInstallPrompt.userChoice;
+    if (choice.outcome === 'accepted') {
+      deferredInstallPrompt = null;
+      return true;
+    }
+  } catch (err) {
+    console.error('PWA install prompt error:', err);
+  }
+  return false;
+}

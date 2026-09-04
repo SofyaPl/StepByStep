@@ -1,5 +1,5 @@
 import React from 'react';
-import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Settings, RefreshCw } from 'lucide-react';
+import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Settings, RefreshCw, Download } from 'lucide-react';
 import { getFriendlyDateTitle, isToday, addDays } from '../utils/dateUtils';
 
 interface HeaderProps {
@@ -10,6 +10,8 @@ interface HeaderProps {
   isSyncing: boolean;
   onTriggerSync?: () => void;
   hasSyncUrl: boolean;
+  canInstall?: boolean;
+  onInstall?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -19,7 +21,9 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenSettings,
   isSyncing,
   onTriggerSync,
-  hasSyncUrl
+  hasSyncUrl,
+  canInstall,
+  onInstall
 }) => {
   const { title, subtitle } = getFriendlyDateTitle(currentDateKey);
   const currentlyToday = isToday(currentDateKey);
@@ -51,6 +55,18 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* Action Controls */}
         <div className="flex items-center gap-1">
+          {/* Quick Install button for desktop if browser supports it */}
+          {canInstall && onInstall && (
+            <button
+              onClick={onInstall}
+              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 text-xs font-medium transition active:scale-95 mr-1"
+              title="Установить приложение на компьютер"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>Установить на ПК</span>
+            </button>
+          )}
+
           {/* Day navigation arrows */}
           <div className="flex items-center bg-slate-800/80 rounded-xl p-0.5 border border-slate-700/60">
             <button

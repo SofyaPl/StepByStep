@@ -10,6 +10,11 @@ import {
   recordDeletedTaskIds,
   clearDeletedTaskIds
 } from './services/storage';
+import {
+  getDeferredInstallPrompt,
+  promptPwaInstall,
+  isAppStandalone
+} from './serviceWorkerHelper';
 import { syncWithGoogleSheets } from './services/googleSheets';
 import { getTodayKey } from './utils/dateUtils';
 import {
@@ -44,6 +49,38 @@ export const App: React.FC = () => {
   const [settings, setSettings] = useState<SyncSettings>(loadSettings());
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
+
+  // PWA Install on Desktop & Mobile
+  const [canInstall, setCanInstall] = useState<boolean>(false);
+  const [isStandalone, setIsStandalone] = useState<boolean>(false);
+
+  useEffect(() => {
+    setIsStandalone(isAppStandalone());
+    if (getDeferredInstallPrompt()) {
+      setCanInstall(true);
+    }
+
+    const handleInstallable = () => setCanInstall(true);
+    const handleInstalled = () => {
+      setCanInstall(false);
+      setIsStandalone(true);
+    };
+
+    window.addEventListener('pwa-installable', handleInstallable);
+    window.addEventListener('pwa-installed', handleInstalled);
+    return () => {
+      window.removeEventListener('pwa-installable', handleInstallable);
+      window.removeEventListener('pwa-installed', handleInstalled);
+    };
+  }, []);
+
+  const handleInstallApp = async () => {
+    const success = await promptPwaInstall();
+    if (success) {
+      setCanInstall(false);
+      setIsStandalone(true);
+    }
+  };
 
   // Modals
   const [isNewTaskOpen, setIsNewTaskOpen] = useState(false);
@@ -244,8 +281,13 @@ export const App: React.FC = () => {
 
   // Save changes from Edit Task Modal
   const handleSaveEditedTask = (task: Task, title: string, notes?: string, recurrence?: RecurrenceRule) => {
-    const updated = updateTaskAndRecurrence(task, title, notes, recurrence, tasksRef.current);
-    updateTasks(updated);
+    const { updatedTasks, removedIds } = updateTaskAndRecurrence(task, title, notes, recurrence, tasksRef.current);
+    if (removedIds && removedIds.length > 0) {
+      recordDeletedTaskIds(removedIds);
+      updateTasks(updatedTasks, removedIds);
+    } else {
+      updateTasks(updatedTasks);
+    }
     setEditingTask(null);
   };
 
@@ -411,6 +453,8 @@ export const App: React.FC = () => {
         isSyncing={isSyncing}
         onTriggerSync={handleSync}
         hasSyncUrl={Boolean(settings.googleSheetsUrl)}
+        canInstall={canInstall && !isStandalone}
+        onInstall={handleInstallApp}
       />
 
       {/* Date Strip / Swiper */}
@@ -577,6 +621,9 @@ export const App: React.FC = () => {
         isSyncing={isSyncing}
         syncMessage={syncMessage}
         tasks={tasks}
+        canInstall={canInstall}
+        onInstall={handleInstallApp}
+        isStandalone={isStandalone}
         onImportTasks={(imported) => {
           const { updatedTasks } = ensureRecurringTasks(imported, 7, 45, loadDeletedTaskIds());
           updateTasks(updatedTasks);

@@ -341,6 +341,11 @@ export function getSeriesRecurrenceRule(task: Task, allTasks: Task[]): Recurrenc
   return root.recurrence;
 }
 
+export interface UpdateTaskRecurrenceResult {
+  updatedTasks: Task[];
+  removedIds: string[];
+}
+
 // Update task title, notes and recurrence settings
 export function updateTaskAndRecurrence(
   task: Task,
@@ -348,7 +353,7 @@ export function updateTaskAndRecurrence(
   newNotes: string | undefined,
   newRule: RecurrenceRule | undefined,
   allTasks: Task[]
-): Task[] {
+): UpdateTaskRecurrenceResult {
   const now = new Date().toISOString();
   const root = getSeriesRoot(task, allTasks);
   const wasRecurring = Boolean(root.recurrence && root.recurrence.type !== 'none');
@@ -356,9 +361,10 @@ export function updateTaskAndRecurrence(
 
   // Case 1: Was not recurring, remains not recurring
   if (!wasRecurring && !isNowRecurring) {
-    return allTasks.map(t =>
+    const updatedTasks = allTasks.map(t =>
       t.id === task.id ? { ...t, title: newTitle, notes: newNotes, updatedAt: now } : t
     );
+    return { updatedTasks, removedIds: [] };
   }
 
   // Case 2: Was not recurring, converted to recurring
@@ -376,41 +382,50 @@ export function updateTaskAndRecurrence(
 
     const updatedList = allTasks.map(t => (t.id === task.id ? updatedRoot : t));
     const { updatedTasks } = ensureRecurringTasks(updatedList, 7, 45);
-    return updatedTasks;
+    return { updatedTasks, removedIds: [] };
   }
 
   // Case 3: Was recurring, user turned recurrence OFF ('none')
   if (wasRecurring && !isNowRecurring) {
-    // Turn root into a regular task without recurrence, and remove future pending instances
-    return allTasks
+    const removedIds: string[] = [];
+    const updatedTasks = allTasks
       .filter(t => {
-        // Remove child instances that are still pending
-        if (t.recurrenceParentId === root.id && t.status === 'pending') {
+        // Always preserve the current task being edited, even if it was a pending child instance
+        if (t.id === task.id) return true;
+
+        // Remove other child instances of this series that are still pending
+        if ((t.recurrenceParentId === root.id || t.id.startsWith(`rec-${root.id}-`)) && t.status === 'pending') {
+          removedIds.push(t.id);
           return false;
         }
         return true;
       })
       .map(t => {
+        // If the task being edited was the root task
         if (t.id === root.id) {
           return {
             ...t,
-            title: newTitle,
-            notes: newNotes,
+            title: task.id === root.id ? newTitle : t.title,
+            notes: task.id === root.id ? newNotes : t.notes,
             recurrence: undefined,
             updatedAt: now
           };
         }
+        // If the task being edited is a child instance: detach it and make it a standalone one-time task
         if (t.id === task.id && task.id !== root.id) {
           return {
             ...t,
             title: newTitle,
             notes: newNotes,
             recurrenceParentId: undefined,
+            recurrence: undefined,
             updatedAt: now
           };
         }
         return t;
       });
+
+    return { updatedTasks, removedIds };
   }
 
   // Case 4: Was recurring, user modified recurrence rules (interval, days, dates, etc.)
@@ -453,10 +468,10 @@ export function updateTaskAndRecurrence(
 
     // 3. Regenerate future instances according to the new schedule
     const { updatedTasks } = ensureRecurringTasks(updatedTasksWithRoot, 7, 45);
-    return updatedTasks;
+    return { updatedTasks, removedIds: [] };
   }
 
-  return allTasks;
+  return { updatedTasks: allTasks, removedIds: [] };
 }
 
 // Stop recurring cycle from a given date onwards (preserves past history)

@@ -17,13 +17,13 @@ export default defineConfig(({ mode }) => {
         },
         includeAssets: ['icon.svg', 'pwa-192x192.png', 'pwa-512x512.png'],
         manifest: {
-          name: 'Step By Step — Мой день',
+          name: 'ШагЗаШагом — Ежедневник',
           short_name: 'ШагЗаШагом',
           description: 'Персональный и быстрый ежедневный задачник',
           theme_color: '#0f172a',
           background_color: '#0f172a',
           display: 'standalone',
-          orientation: 'portrait',
+          orientation: 'any',
           start_url: base,
           scope: base,
           icons: [
@@ -31,13 +31,25 @@ export default defineConfig(({ mode }) => {
               src: 'pwa-192x192.png',
               sizes: '192x192',
               type: 'image/png',
-              purpose: 'any maskable'
+              purpose: 'any'
+            },
+            {
+              src: 'pwa-192x192.png',
+              sizes: '192x192',
+              type: 'image/png',
+              purpose: 'maskable'
             },
             {
               src: 'pwa-512x512.png',
               sizes: '512x512',
               type: 'image/png',
-              purpose: 'any maskable'
+              purpose: 'any'
+            },
+            {
+              src: 'pwa-512x512.png',
+              sizes: '512x512',
+              type: 'image/png',
+              purpose: 'maskable'
             },
             {
               src: 'icon.svg',
