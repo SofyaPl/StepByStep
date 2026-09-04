@@ -99,7 +99,7 @@ export const App: React.FC = () => {
   const isSyncingRef = useRef<boolean>(false);
   const pendingChangesDuringSyncRef = useRef<boolean>(false);
   const autoSyncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const handleSyncRef = useRef<(fullReload?: boolean) => Promise<void>>(() => Promise.resolve());
+  const handleSyncRef = useRef<(fullReload?: boolean, isSilent?: boolean) => Promise<void>>(() => Promise.resolve());
 
   // Debounced auto-sync trigger: only called when USER makes changes
   const triggerAutoSync = useCallback(() => {
@@ -174,29 +174,32 @@ export const App: React.FC = () => {
       const isOnlyDemo = loaded.length > 0 && loaded.every(t => t.id.startsWith('demo-'));
       if (isOnlyDemo || loaded.length === 0) {
         clearDeletedTaskIds();
-        handleSyncRef.current(true);
+        handleSyncRef.current(true, true);
       } else {
-        handleSyncRef.current(false);
+        handleSyncRef.current(false, true);
       }
     }
   }, [applySyncedTasks]);
 
-  // Sync when returning to the app window/tab
+  // Sync when returning to the app window/tab after being away (cooldown: 2 minutes)
+  const lastBackgroundSyncRef = useRef<number>(Date.now());
+
   useEffect(() => {
-    const handleFocusOrVisible = () => {
+    const handleVisible = () => {
       if (document.visibilityState === 'visible') {
         const cur = loadSettings();
-        if (cur.googleSheetsUrl && cur.autoSync) {
-          handleSyncRef.current(false);
+        const now = Date.now();
+        // Cooldown: at least 2 minutes (120,000 ms) between automatic background checks
+        if (cur.googleSheetsUrl && cur.autoSync && (now - lastBackgroundSyncRef.current > 120000)) {
+          lastBackgroundSyncRef.current = now;
+          handleSyncRef.current(false, true);
         }
       }
     };
 
-    window.addEventListener('focus', handleFocusOrVisible);
-    document.addEventListener('visibilitychange', handleFocusOrVisible);
+    document.addEventListener('visibilitychange', handleVisible);
     return () => {
-      window.removeEventListener('focus', handleFocusOrVisible);
-      document.removeEventListener('visibilitychange', handleFocusOrVisible);
+      document.removeEventListener('visibilitychange', handleVisible);
     };
   }, []);
 
@@ -327,7 +330,7 @@ export const App: React.FC = () => {
   };
 
   // Perform Sync with Google Sheets
-  const handleSync = useCallback(async (fullReloadFromSheet = false) => {
+  const handleSync = useCallback(async (fullReloadFromSheet = false, isSilent = false) => {
     const currentSettings = loadSettings();
     if (!currentSettings.googleSheetsUrl) {
       if (fullReloadFromSheet) {
@@ -348,7 +351,9 @@ export const App: React.FC = () => {
 
     isSyncingRef.current = true;
     setIsSyncing(true);
-    setSyncMessage(fullReloadFromSheet ? 'Загрузка всех задач из Google Таблицы...' : 'Синхронизация с Google Таблицей...');
+    if (!isSilent) {
+      setSyncMessage(fullReloadFromSheet ? 'Загрузка всех задач из Google Таблицы...' : 'Синхронизация с Google Таблицей...');
+    }
 
     try {
       const isOnlyDemo = tasksRef.current.length > 0 && tasksRef.current.every(t => t.id.startsWith('demo-'));
@@ -410,8 +415,10 @@ export const App: React.FC = () => {
         };
         setSettings(newSettings);
         saveSettings(newSettings);
-        setSyncMessage(`Успешно! Синхронизировано задач: ${result.count}`);
-        setTimeout(() => setSyncMessage(null), 3500);
+        if (!isSilent) {
+          setSyncMessage(`Успешно! Синхронизировано задач: ${result.count}`);
+          setTimeout(() => setSyncMessage(null), 3500);
+        }
       } else {
         setSyncMessage(`Ошибка: ${result.message}`);
         setTimeout(() => setSyncMessage(null), 5000);
