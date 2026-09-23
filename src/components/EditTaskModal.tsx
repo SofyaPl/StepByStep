@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { X, Check, MessageSquare, Calendar, Repeat, ChevronLeft, ChevronRight, Ban } from 'lucide-react';
 import { getFriendlyDateTitle, addDays } from '../utils/dateUtils';
 import { getUpcomingRecurrencePreview, isRecurringTask } from '../utils/recurrenceUtils';
+import { useKeyboardInset } from '../hooks/useKeyboardInset';
 import { Task, RecurrenceRule, RecurrenceType } from '../types';
 
 interface EditTaskModalProps {
@@ -48,6 +49,8 @@ export const EditTaskModal: React.FC<EditTaskModalProps> = ({
   const [hasEndDate, setHasEndDate] = useState(Boolean(initialRule?.endDate));
   const [endDate, setEndDate] = useState(initialRule?.endDate || (task ? addDays(task.date, 28) : ''));
   const titleInputRef = useRef<HTMLInputElement>(null);
+  const notesInputRef = useRef<HTMLTextAreaElement>(null);
+  const { keyboardInset, viewportHeight } = useKeyboardInset(isOpen);
 
   // Focus input when modal opens
   useEffect(() => {
@@ -133,6 +136,15 @@ export const EditTaskModal: React.FC<EditTaskModalProps> = ({
     }
   };
 
+  // Enter в названии переводит к комментарию, а не отправляет форму: иначе задача
+  // сохраняется раньше, чем пользователь успел дописать подробности
+  const handleTitleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && !e.ctrlKey && !e.metaKey) {
+      e.preventDefault();
+      notesInputRef.current?.focus();
+    }
+  };
+
   const getIntervalDescription = () => {
     if (intervalDays === 2) return 'день отдыхаем, день делаем (через день)';
     if (intervalDays === 3) return '2 дня перерыв, на 3-й день делаем (через 2 дня)';
@@ -143,15 +155,19 @@ export const EditTaskModal: React.FC<EditTaskModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200"
+      className="fixed inset-0 z-50 flex items-start sm:items-center justify-center p-0 sm:p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200"
+      style={keyboardInset ? { paddingBottom: keyboardInset } : undefined}
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
       onKeyDown={handleKeyDown}
     >
-      <div className="bg-slate-900 border border-slate-800 rounded-t-3xl sm:rounded-3xl max-w-lg w-full p-5 sm:p-6 shadow-2xl space-y-4 max-h-[92vh] overflow-y-auto animate-in slide-in-from-bottom-6 sm:slide-in-from-bottom-2 duration-200">
-        {/* Header */}
-        <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+      <div
+        className="bg-slate-900 border border-slate-800 rounded-b-3xl sm:rounded-3xl max-w-lg w-full shadow-2xl flex flex-col max-h-[92vh] overflow-hidden animate-in slide-in-from-top-6 sm:slide-in-from-bottom-2 duration-200"
+        style={keyboardInset && viewportHeight ? { maxHeight: viewportHeight - 8 } : undefined}
+      >
+        {/* Header. Отступ сверху учитывает вырез экрана: лист прижат к его верхнему краю */}
+        <div className="shrink-0 flex items-center justify-between px-5 sm:px-6 pt-[max(1.25rem,env(safe-area-inset-top))] sm:pt-6 pb-3 border-b border-slate-800">
           <div className="flex items-center gap-2.5">
             <div className="p-2 rounded-xl bg-indigo-500/10 text-indigo-400">
               <Repeat className="w-5 h-5" />
@@ -173,8 +189,12 @@ export const EditTaskModal: React.FC<EditTaskModalProps> = ({
           </button>
         </div>
 
-        {/* Form Body */}
-        <form onSubmit={handleSubmit} className="space-y-4">
+        {/* Поля прокручиваются, шапка и кнопки остаются на месте */}
+        <form
+          id="edit-task-form"
+          onSubmit={handleSubmit}
+          className="flex-1 min-h-0 overflow-y-auto px-5 sm:px-6 py-4 space-y-4"
+        >
           {/* Title Field */}
           <div className="space-y-1">
             <label className="text-xs font-medium text-slate-300">
@@ -185,6 +205,8 @@ export const EditTaskModal: React.FC<EditTaskModalProps> = ({
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
+              onKeyDown={handleTitleKeyDown}
+              enterKeyHint="next"
               placeholder="Что нужно сделать?"
               className="w-full bg-slate-950 border border-slate-700/80 rounded-2xl px-3.5 py-2.5 text-base font-medium text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
             />
@@ -192,16 +214,17 @@ export const EditTaskModal: React.FC<EditTaskModalProps> = ({
 
           {/* Notes Field */}
           <div className="space-y-1">
-            <label className="text-xs font-medium text-slate-400 flex items-center gap-1.5">
-              <MessageSquare className="w-3.5 h-3.5" />
+            <label className="text-xs font-medium text-slate-300 flex items-center gap-1.5">
+              <MessageSquare className="w-3.5 h-3.5 text-indigo-400" />
               <span>Комментарий или подробности:</span>
             </label>
             <textarea
+              ref={notesInputRef}
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="Номера документов, адреса, ссылки, дозировка..."
               rows={2}
-              className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-3.5 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 resize-none leading-relaxed"
+              className="w-full bg-slate-950 border border-slate-700/80 rounded-2xl px-3.5 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 resize-none leading-relaxed"
             />
           </div>
 
@@ -495,31 +518,32 @@ export const EditTaskModal: React.FC<EditTaskModalProps> = ({
               </button>
             </div>
           )}
-
-          {/* Actions */}
-          <div className="flex items-center justify-between pt-2">
-            <span className="text-[11px] text-slate-500 hidden sm:inline">
-              Ctrl+Enter для сохранения
-            </span>
-            <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
-              <button
-                type="button"
-                onClick={onClose}
-                className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 text-xs font-medium transition text-center"
-              >
-                Отмена
-              </button>
-              <button
-                type="submit"
-                disabled={!title.trim() || (recOption === 'weekdays' && selectedWeekdays.length === 0)}
-                className="flex-1 sm:flex-none px-5 py-2.5 rounded-xl bg-indigo-600 text-white text-xs font-medium hover:bg-indigo-500 disabled:opacity-40 disabled:hover:bg-indigo-600 transition flex items-center justify-center gap-1.5 shadow-lg shadow-indigo-600/30 active:scale-95"
-              >
-                <Check className="w-4 h-4" />
-                <span>{isInitiallyRecurring ? 'Сохранить изменения' : 'Сохранить'}</span>
-              </button>
-            </div>
-          </div>
         </form>
+
+        {/* Кнопки закреплены в подвале, чтобы клавиатура их не перекрывала */}
+        <div className="shrink-0 flex items-center justify-between gap-2 border-t border-slate-800 bg-slate-900 px-5 sm:px-6 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+          <span className="text-[11px] text-slate-500 hidden sm:inline">
+            Ctrl+Enter для сохранения
+          </span>
+          <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+            <button
+              type="button"
+              onClick={onClose}
+              className="shrink-0 px-4 py-2.5 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 text-sm sm:text-xs font-medium transition text-center"
+            >
+              Отмена
+            </button>
+            <button
+              type="submit"
+              form="edit-task-form"
+              disabled={!title.trim() || (recOption === 'weekdays' && selectedWeekdays.length === 0)}
+              className="flex-1 sm:flex-none px-5 py-2.5 rounded-xl bg-indigo-600 text-white text-sm sm:text-xs font-medium whitespace-nowrap hover:bg-indigo-500 disabled:opacity-40 disabled:hover:bg-indigo-600 transition flex items-center justify-center gap-1.5 shadow-lg shadow-indigo-600/30 active:scale-95"
+            >
+              <Check className="w-4 h-4" />
+              <span>{isInitiallyRecurring ? 'Сохранить изменения' : 'Сохранить'}</span>
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );
