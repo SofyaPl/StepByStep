@@ -454,7 +454,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           <div className="flex items-center gap-2">
             <span className="font-semibold text-slate-200">ШагЗаШагом</span>
             <span className="text-[11px] px-2 py-0.5 rounded-md bg-slate-800 text-indigo-300 font-mono border border-slate-700/60">
-              v1.2
+              v1.3
             </span>
           </div>
           <button
