@@ -13,6 +13,10 @@ dist-ssr
 dev-dist
 *.local
 
+# Internal drafts (Habr article — do not publish to GitHub)
+docs/internal/
+habr/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
