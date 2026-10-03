@@ -70,25 +70,24 @@ export function getInitialDemoTasks(): Task[] {
   return [
     {
       id: 'demo-1',
-      title: 'Установить приложение на телефон через меню браузера',
+      title: 'Купить молоко',
       date: today,
       status: 'pending',
-      notes: 'Нажмите в браузере «Поделиться» → «На экран Домой»',
+      notes: 'и хлеб',
       createdAt: now,
       updatedAt: now
     },
     {
       id: 'demo-2',
-      title: 'Проверить перенос задачи на другой день',
+      title: 'Оплатить коммуналку',
       date: today,
       status: 'pending',
-      notes: 'Нажмите на иконку календарика или кнопку «На завтра»',
       createdAt: now,
       updatedAt: now
     },
     {
       id: 'demo-3',
-      title: 'Начать пользоваться собственным ежедневником',
+      title: 'Забрать посылку',
       date: today,
       status: 'completed',
       createdAt: now,
@@ -96,7 +95,7 @@ export function getInitialDemoTasks(): Task[] {
     },
     {
       id: 'demo-4',
-      title: 'Запланированная задача на завтра',
+      title: 'Полить цветы',
       date: tomorrow,
       status: 'pending',
       createdAt: now,
