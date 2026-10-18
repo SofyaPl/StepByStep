@@ -15,7 +15,7 @@ import {
   promptPwaInstall,
   isAppStandalone
 } from './serviceWorkerHelper';
-import { syncWithGoogleSheets } from './services/googleSheets';
+import { pushTasksToSheet, pullTasksFromSheet } from './services/googleSheets';
 import { getTodayKey } from './utils/dateUtils';
 import {
   ensureRecurringTasks,
@@ -99,6 +99,7 @@ export const App: React.FC = () => {
   // Helper to update tasks and track removed task IDs persistently
   const isSyncingRef = useRef<boolean>(false);
   const pendingChangesDuringSyncRef = useRef<boolean>(false);
+  const pendingRestoreRef = useRef<boolean>(false);
   const autoSyncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const handleSyncRef = useRef<(fullReload?: boolean, isSilent?: boolean) => Promise<void>>(() => Promise.resolve());
 
@@ -119,7 +120,7 @@ export const App: React.FC = () => {
     }
 
     autoSyncTimerRef.current = setTimeout(() => {
-      handleSyncRef.current(false);
+      handleSyncRef.current(false, true);
     }, 3000); // 3 seconds after user stops making changes
   }, []);
 
@@ -150,15 +151,6 @@ export const App: React.FC = () => {
     }
   }, [triggerAutoSync]);
 
-  // Apply tasks from sync (without scheduling auto-sync back)
-  const applySyncedTasks = useCallback((syncedTasks: Task[], newDeletedMap: Record<string, string>) => {
-    const repaired = repairPrematureMissedStatuses(syncedTasks);
-    tasksRef.current = repaired;
-    setTasks(repaired);
-    saveTasks(repaired);
-    saveDeletedTaskIds(newDeletedMap);
-  }, []);
-
   // Load initial tasks & ensure recurring instances are present
   useEffect(() => {
     const loaded = loadTasks();
@@ -171,40 +163,6 @@ export const App: React.FC = () => {
     if (changed) {
       saveTasks(repaired);
     }
-
-    // Auto-sync on startup if Google Sheets URL is configured
-    const savedSettings = loadSettings();
-    if (savedSettings.googleSheetsUrl) {
-      const isOnlyDemo = loaded.length > 0 && loaded.every(t => t.id.startsWith('demo-'));
-      if (isOnlyDemo || loaded.length === 0) {
-        clearDeletedTaskIds();
-        handleSyncRef.current(true, true);
-      } else {
-        handleSyncRef.current(false, true);
-      }
-    }
-  }, [applySyncedTasks]);
-
-  // Sync when returning to the app window/tab after being away (cooldown: 2 minutes)
-  const lastBackgroundSyncRef = useRef<number>(Date.now());
-
-  useEffect(() => {
-    const handleVisible = () => {
-      if (document.visibilityState === 'visible') {
-        const cur = loadSettings();
-        const now = Date.now();
-        // Cooldown: at least 2 minutes (120,000 ms) between automatic background checks
-        if (cur.googleSheetsUrl && cur.autoSync && (now - lastBackgroundSyncRef.current > 120000)) {
-          lastBackgroundSyncRef.current = now;
-          handleSyncRef.current(false, true);
-        }
-      }
-    };
-
-    document.addEventListener('visibilitychange', handleVisible);
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisible);
-    };
   }, []);
 
   // Whenever selectedDateKey changes, ensure recurring instances are generated around it
@@ -333,7 +291,8 @@ export const App: React.FC = () => {
     setSelectedDateKey(today);
   };
 
-  // Perform Sync with Google Sheets
+  // Backup to Google Sheets (push) or explicit restore (pull).
+  // Regular path never reads the sheet back into the phone.
   const handleSync = useCallback(async (fullReloadFromSheet = false, isSilent = false) => {
     const currentSettings = loadSettings();
     if (!currentSettings.googleSheetsUrl) {
@@ -344,7 +303,11 @@ export const App: React.FC = () => {
     }
 
     if (isSyncingRef.current) {
-      pendingChangesDuringSyncRef.current = true;
+      if (fullReloadFromSheet) {
+        pendingRestoreRef.current = true;
+      } else {
+        pendingChangesDuringSyncRef.current = true;
+      }
       return;
     }
 
@@ -356,76 +319,48 @@ export const App: React.FC = () => {
     isSyncingRef.current = true;
     setIsSyncing(true);
     if (!isSilent) {
-      setSyncMessage(fullReloadFromSheet ? 'Загрузка всех задач из Google Таблицы...' : 'Синхронизация с Google Таблицей...');
+      setSyncMessage(fullReloadFromSheet ? 'Загрузка всех задач из Google Таблицы...' : 'Сохранение копии в Google Таблицу...');
     }
 
     try {
-      const isOnlyDemo = tasksRef.current.length > 0 && tasksRef.current.every(t => t.id.startsWith('demo-'));
-      const isCleanReload = fullReloadFromSheet || isOnlyDemo;
+      if (fullReloadFromSheet) {
+        const { result, tasks: remoteTasks } = await pullTasksFromSheet(currentSettings.googleSheetsUrl);
+        if (!result.success) {
+          setSyncMessage(`Ошибка: ${result.message}`);
+          setTimeout(() => setSyncMessage(null), 5000);
+          return;
+        }
 
-      if (isCleanReload) {
         clearDeletedTaskIds();
+        pendingChangesDuringSyncRef.current = false;
+        const repaired = repairPrematureMissedStatuses(remoteTasks);
+        const { updatedTasks } = ensureRecurringTasks(repaired, 7, 45, {});
+        tasksRef.current = updatedTasks;
+        setTasks(updatedTasks);
+        saveTasks(updatedTasks);
+        saveDeletedTaskIds({});
+      } else {
+        const result = await pushTasksToSheet(currentSettings.googleSheetsUrl, tasksRef.current);
+        if (!result.success) {
+          setSyncMessage(`Ошибка: ${result.message}`);
+          setTimeout(() => setSyncMessage(null), 5000);
+          return;
+        }
       }
 
-      const currentTasks = isCleanReload ? [] : [...tasksRef.current];
-      const currentDeleted = isCleanReload ? {} : loadDeletedTaskIds();
-      const currentLastSynced = isCleanReload ? null : currentSettings.lastSyncedAt;
-
-      const { result, mergedTasks, updatedDeletedMap } = await syncWithGoogleSheets(
-        currentSettings.googleSheetsUrl,
-        currentTasks,
-        currentDeleted,
-        currentLastSynced
-      );
-
-      if (result.success) {
-        saveDeletedTaskIds(updatedDeletedMap);
-
-        // If user made changes while network request was in flight, do not overwrite them!
-        if (pendingChangesDuringSyncRef.current && !isCleanReload) {
-          pendingChangesDuringSyncRef.current = false;
-          const latestLocal = tasksRef.current;
-          const latestLocalIds = new Set(latestLocal.map(t => t.id));
-          const latestDeleted = loadDeletedTaskIds();
-
-          const combined = [...latestLocal];
-          for (const mt of mergedTasks) {
-            if (!latestLocalIds.has(mt.id) && !latestDeleted[mt.id]) {
-              combined.push(mt);
-            }
-          }
-          const { updatedTasks } = ensureRecurringTasks(combined, 7, 45, latestDeleted);
-          tasksRef.current = updatedTasks;
-          setTasks(updatedTasks);
-          saveTasks(updatedTasks);
-
-          // Re-sync after 2s to push user's new in-flight changes to the sheet
-          triggerAutoSync();
-        } else if (isCleanReload) {
-          pendingChangesDuringSyncRef.current = false;
-          const { updatedTasks } = ensureRecurringTasks(mergedTasks, 7, 45, updatedDeletedMap);
-          tasksRef.current = updatedTasks;
-          setTasks(updatedTasks);
-          saveTasks(updatedTasks);
-        } else {
-          pendingChangesDuringSyncRef.current = false;
-          const { updatedTasks } = ensureRecurringTasks(mergedTasks, 7, 45, updatedDeletedMap);
-          applySyncedTasks(updatedTasks, updatedDeletedMap);
-        }
-
-        const newSettings: SyncSettings = {
-          ...currentSettings,
-          lastSyncedAt: new Date().toISOString()
-        };
-        setSettings(newSettings);
-        saveSettings(newSettings);
-        if (!isSilent) {
-          setSyncMessage(`Успешно! Синхронизировано задач: ${result.count}`);
-          setTimeout(() => setSyncMessage(null), 3500);
-        }
-      } else {
-        setSyncMessage(`Ошибка: ${result.message}`);
-        setTimeout(() => setSyncMessage(null), 5000);
+      const newSettings: SyncSettings = {
+        ...currentSettings,
+        lastSyncedAt: new Date().toISOString()
+      };
+      setSettings(newSettings);
+      saveSettings(newSettings);
+      if (!isSilent) {
+        setSyncMessage(
+          fullReloadFromSheet
+            ? `Восстановлено из таблицы: ${tasksRef.current.length} задач`
+            : `Копия сохранена: ${tasksRef.current.length} задач`
+        );
+        setTimeout(() => setSyncMessage(null), 3500);
       }
     } catch (err: unknown) {
       console.error('Sync failed', err);
@@ -435,8 +370,18 @@ export const App: React.FC = () => {
     } finally {
       isSyncingRef.current = false;
       setIsSyncing(false);
+      if (pendingRestoreRef.current) {
+        pendingRestoreRef.current = false;
+        pendingChangesDuringSyncRef.current = false;
+        queueMicrotask(() => {
+          void handleSyncRef.current(true, false);
+        });
+      } else if (pendingChangesDuringSyncRef.current) {
+        pendingChangesDuringSyncRef.current = false;
+        triggerAutoSync();
+      }
     }
-  }, [applySyncedTasks, triggerAutoSync]);
+  }, [triggerAutoSync]);
 
   // Keep handleSyncRef pointing to current handleSync
   useEffect(() => {

@@ -137,6 +137,118 @@ function doPost(e) {
 }
 `;
 
+function normalizeRemoteTasks(rawRemoteTasks: Task[]): Task[] {
+  return rawRemoteTasks.map(rt => {
+    const { cleanNotes, rule: notesRule } = extractRecurrenceFromNotes(rt.notes);
+    let recurrence = rt.recurrence || notesRule;
+    let recurrenceParentId = rt.recurrenceParentId;
+
+    const idStr = String(rt.id);
+    if (!recurrenceParentId && idStr.startsWith('rec-')) {
+      const match = idStr.match(/^rec-(.+)-\d{4}-\d{2}-\d{2}$/);
+      if (match) {
+        recurrenceParentId = match[1];
+      }
+    }
+
+    return {
+      ...rt,
+      id: idStr,
+      date: normalizeDateKey(rt.date),
+      title: String(rt.title || ''),
+      status: (rt.status as TaskStatus) || 'pending',
+      notes: cleanNotes,
+      createdAt: rt.createdAt || new Date().toISOString(),
+      updatedAt: rt.updatedAt || new Date().toISOString(),
+      recurrence,
+      recurrenceParentId
+    };
+  });
+}
+
+function tasksForSheet(localTasks: Task[]): Task[] {
+  return localTasks.map(t => {
+    if (t.recurrence && t.recurrence.type !== 'none') {
+      return {
+        ...t,
+        notes: attachRecurrenceToNotes(t.notes, t.recurrence)
+      };
+    }
+    return t;
+  });
+}
+
+/** Только запись: телефон — источник правды, таблица — копия. */
+export async function pushTasksToSheet(url: string, localTasks: Task[]): Promise<SyncResult> {
+  if (!url || !url.trim().startsWith('http')) {
+    return { success: false, message: 'Укажите корректный URL веб-приложения Google' };
+  }
+
+  try {
+    const postResponse = await fetch(url.trim(), {
+      method: 'POST',
+      redirect: 'follow',
+      headers: {
+        'Content-Type': 'text/plain;charset=utf-8'
+      },
+      body: JSON.stringify({
+        action: 'sync',
+        tasks: tasksForSheet(localTasks)
+      })
+    });
+
+    if (!postResponse.ok) {
+      throw new Error(`Ошибка записи в таблицу: HTTP ${postResponse.status}`);
+    }
+
+    return {
+      success: true,
+      message: `Сохранено в таблицу: ${localTasks.length} задач`,
+      count: localTasks.length
+    };
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Неизвестная ошибка сети';
+    return { success: false, message };
+  }
+}
+
+/** Только чтение: явное восстановление после потери телефона. */
+export async function pullTasksFromSheet(url: string): Promise<{ result: SyncResult; tasks: Task[] }> {
+  if (!url || !url.trim().startsWith('http')) {
+    return {
+      result: { success: false, message: 'Укажите корректный URL веб-приложения Google' },
+      tasks: []
+    };
+  }
+
+  try {
+    const getResponse = await fetch(url.trim(), {
+      method: 'GET',
+      redirect: 'follow'
+    });
+
+    if (!getResponse.ok) {
+      throw new Error(`Ошибка подключения: HTTP ${getResponse.status}`);
+    }
+
+    const getData = await getResponse.json();
+    const rawRemoteTasks: Task[] = Array.isArray(getData.tasks) ? getData.tasks : [];
+    const tasks = normalizeRemoteTasks(rawRemoteTasks);
+
+    return {
+      result: {
+        success: true,
+        message: `Загружено из таблицы: ${tasks.length} задач`,
+        count: tasks.length
+      },
+      tasks
+    };
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Неизвестная ошибка сети';
+    return { result: { success: false, message }, tasks: [] };
+  }
+}
+
 export async function syncWithGoogleSheets(
   url: string,
   localTasks: Task[],

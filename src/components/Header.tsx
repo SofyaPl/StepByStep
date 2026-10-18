@@ -110,7 +110,7 @@ export const Header: React.FC<HeaderProps> = ({
               onClick={onTriggerSync}
               disabled={isSyncing}
               className="p-1.5 sm:p-2 rounded-xl bg-slate-800/80 text-slate-300 hover:text-emerald-400 hover:bg-slate-800 border border-slate-700/60 transition active:scale-95 disabled:opacity-50"
-              title="Синхронизировать с Google Таблицей"
+              title="Сохранить копию в Google Таблицу"
             >
               <RefreshCw className={`w-4 h-4 ${isSyncing ? 'animate-spin text-emerald-400' : ''}`} />
             </button>
@@ -120,7 +120,7 @@ export const Header: React.FC<HeaderProps> = ({
           <button
             onClick={onOpenSettings}
             className="p-1.5 sm:p-2 rounded-xl bg-slate-800/80 text-slate-300 hover:text-white hover:bg-slate-800 border border-slate-700/60 transition active:scale-95 relative"
-            title="Настройки и синхронизация"
+            title="Настройки"
           >
             <Settings className="w-4 h-4" />
             {!hasSyncUrl && (

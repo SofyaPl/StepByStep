@@ -72,28 +72,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     await forceAppUpdate();
   };
 
-  const handleSaveSyncSettings = (triggerSync = true) => {
+  const handleSaveSyncSettings = () => {
     const cleanUrl = url.trim();
     const updatedSettings: SyncSettings = {
       ...settings,
       googleSheetsUrl: cleanUrl,
-      // If user inputs a URL, turn on autoSync by default
       autoSync: cleanUrl ? (autoSync !== false) : false
     };
     setAutoSync(updatedSettings.autoSync);
     onSaveSettings(updatedSettings);
     setSaveSuccess(true);
     setTimeout(() => setSaveSuccess(false), 3000);
-
-    if (triggerSync && cleanUrl) {
-      // If local list is empty or only demo tasks, trigger full reload from sheet
-      const isOnlyDemo = tasks.length > 0 && tasks.every(t => t.id.startsWith('demo-'));
-      if ((isOnlyDemo || tasks.length === 0) && onFullReloadFromSheet) {
-        onFullReloadFromSheet();
-      } else {
-        onManualSync();
-      }
-    }
   };
 
   const handleCopyScript = () => {
@@ -197,6 +186,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           {activeTab === 'sync' && (
             <div className="space-y-4">
               <div className="bg-slate-950/50 p-3.5 rounded-2xl border border-slate-800 space-y-3">
+                <p className="text-[11px] text-slate-400 leading-relaxed">
+                  Таблица — только запасная копия. Приложение само туда пишет и никогда не подтягивает задачи обратно, пока вы явно не нажмёте «Загрузить из таблицы».
+                </p>
                 <label className="block text-slate-300 font-medium">
                   URL веб-приложения Google Таблицы:
                 </label>
@@ -215,12 +207,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     onChange={(e) => setAutoSync(e.target.checked)}
                     className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 bg-slate-900 border-slate-700"
                   />
-                  <span className="text-slate-300 text-xs">Автоматически синхронизировать при изменениях</span>
+                  <span className="text-slate-300 text-xs">Автоматически сохранять копию в таблицу</span>
                 </label>
 
                 <div className="flex flex-wrap items-center gap-2 pt-1">
                   <button
-                    onClick={() => handleSaveSyncSettings(true)}
+                    onClick={handleSaveSyncSettings}
                     className="px-3.5 py-2 rounded-xl bg-indigo-600 text-white font-medium hover:bg-indigo-500 transition text-xs flex items-center gap-1.5 shadow-sm active:scale-95"
                   >
                     {saveSuccess ? (
@@ -235,28 +227,32 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
                   <button
                     onClick={() => {
-                      handleSaveSyncSettings(false);
+                      handleSaveSyncSettings();
                       onManualSync();
                     }}
                     disabled={isSyncing || !url}
                     className="px-3.5 py-2 rounded-xl bg-emerald-600 text-white font-medium hover:bg-emerald-500 disabled:opacity-40 transition flex items-center gap-1 text-xs active:scale-95"
                   >
                     <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
-                    <span>Синхронизировать сейчас</span>
+                    <span>Сохранить копию в таблицу</span>
                   </button>
 
                   {onFullReloadFromSheet && (
                     <button
                       onClick={() => {
+                        const confirmed = window.confirm(
+                          'Задачи на телефоне будут заменены копией из таблицы. Это нужно только если телефон потерялся или приложение стёрлось.'
+                        );
+                        if (!confirmed) return;
                         handleSaveSyncSettings();
                         onFullReloadFromSheet();
                       }}
                       disabled={isSyncing || !url}
                       className="px-3.5 py-2 rounded-xl bg-slate-800 text-amber-300 font-medium hover:bg-slate-700 border border-amber-500/30 disabled:opacity-40 transition flex items-center gap-1 text-xs"
-                      title="Загрузить все задачи из таблицы заново"
+                      title="Подставить задачи из таблицы вместо локальных. Нужно только если телефон потерялся или приложение стёрлось."
                     >
                       <Download className="w-3.5 h-3.5 text-amber-400" />
-                      <span>Восстановить всё из таблицы</span>
+                      <span>Загрузить из таблицы</span>
                     </button>
                   )}
                 </div>
@@ -269,7 +265,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
                 {settings.lastSyncedAt && (
                   <p className="text-[11px] text-slate-500">
-                    Последняя синхронизация: {new Date(settings.lastSyncedAt).toLocaleString('ru-RU')}
+                    Последняя копия в таблице: {new Date(settings.lastSyncedAt).toLocaleString('ru-RU')}
                   </p>
                 )}
               </div>
@@ -454,7 +450,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           <div className="flex items-center gap-2">
             <span className="font-semibold text-slate-200">ШагЗаШагом</span>
             <span className="text-[11px] px-2 py-0.5 rounded-md bg-slate-800 text-indigo-300 font-mono border border-slate-700/60">
-              v1.5
+              v1.6
             </span>
           </div>
           <button
