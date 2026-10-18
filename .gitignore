@@ -17,6 +17,10 @@ dev-dist
 docs/internal/
 habr/
 
+# Personal data exports (never publish)
+Выгрузка таблицы/
+выгрузка таблицы/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

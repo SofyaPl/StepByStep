@@ -281,6 +281,20 @@ export function isRecurringTask(task: Task, allTasks: Task[] = []): boolean {
   return false;
 }
 
+// If a future episode was wrongly marked missed (e.g. after completing a later day), put it back.
+export function repairPrematureMissedStatuses(tasks: Task[], todayKey: string = getTodayKey()): Task[] {
+  const now = new Date().toISOString();
+  let changed = false;
+  const next = tasks.map(t => {
+    if (t.date > todayKey && t.status === 'missed') {
+      changed = true;
+      return { ...t, status: 'pending' as TaskStatus, updatedAt: now };
+    }
+    return t;
+  });
+  return changed ? next : tasks;
+}
+
 // Auto-resolve past instances of a recurring series when today's episode is completed
 export function completeTaskAndResolvePrevious(completedTask: Task, allTasks: Task[]): Task[] {
   const isRecurring = isRecurringTask(completedTask, allTasks);
@@ -294,6 +308,7 @@ export function completeTaskAndResolvePrevious(completedTask: Task, allTasks: Ta
 
   const root = getSeriesRoot(completedTask, allTasks);
   const seriesId = root.id;
+  const todayKey = getTodayKey();
 
   return allTasks.map(t => {
     if (t.id === completedTask.id) {
@@ -303,7 +318,14 @@ export function completeTaskAndResolvePrevious(completedTask: Task, allTasks: Ta
     // If belongs to the same series, earlier than this task, and was still pending:
     // Mark as missed/resolved so user doesn't have to clean up past history!
     const matchesSeries = t.recurrenceParentId === seriesId || t.id === seriesId || t.id.startsWith(`rec-${seriesId}-`);
-    if (matchesSeries && t.date < completedTask.date && t.status === 'pending') {
+    // Only close episodes that are already in the past. Completing a future day
+    // (opened in the date strip) must not mark tomorrow as missed.
+    if (
+      matchesSeries &&
+      t.date < completedTask.date &&
+      t.date < todayKey &&
+      t.status === 'pending'
+    ) {
       return { ...t, status: 'missed', updatedAt: now };
     }
 

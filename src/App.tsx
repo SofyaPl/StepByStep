@@ -21,6 +21,7 @@ import {
   ensureRecurringTasks,
   getEffectiveOverdueTasks,
   completeTaskAndResolvePrevious,
+  repairPrematureMissedStatuses,
   getHumanRecurrenceLabel,
   getSeriesRecurrenceRule,
   getSeriesRoot,
@@ -151,9 +152,10 @@ export const App: React.FC = () => {
 
   // Apply tasks from sync (without scheduling auto-sync back)
   const applySyncedTasks = useCallback((syncedTasks: Task[], newDeletedMap: Record<string, string>) => {
-    tasksRef.current = syncedTasks;
-    setTasks(syncedTasks);
-    saveTasks(syncedTasks);
+    const repaired = repairPrematureMissedStatuses(syncedTasks);
+    tasksRef.current = repaired;
+    setTasks(repaired);
+    saveTasks(repaired);
     saveDeletedTaskIds(newDeletedMap);
   }, []);
 
@@ -162,10 +164,12 @@ export const App: React.FC = () => {
     const loaded = loadTasks();
     const deleted = loadDeletedTaskIds();
     const { updatedTasks, hasNewInstances } = ensureRecurringTasks(loaded, 7, 45, deleted);
-    tasksRef.current = updatedTasks;
-    setTasks(updatedTasks);
-    if (hasNewInstances) {
-      saveTasks(updatedTasks);
+    const repaired = repairPrematureMissedStatuses(updatedTasks);
+    const changed = hasNewInstances || repaired !== updatedTasks;
+    tasksRef.current = repaired;
+    setTasks(repaired);
+    if (changed) {
+      saveTasks(repaired);
     }
 
     // Auto-sync on startup if Google Sheets URL is configured
